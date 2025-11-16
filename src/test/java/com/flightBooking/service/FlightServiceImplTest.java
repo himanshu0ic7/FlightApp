@@ -17,6 +17,7 @@ import com.flightBooking.dto.PassengerDTO;
 import com.flightBooking.model.Booking;
 import com.flightBooking.model.BookingStatus;
 import com.flightBooking.model.Flight;
+import com.flightBooking.model.Gender;
 import com.flightBooking.model.User;
 import com.flightBooking.repo.BookingRepository;
 import com.flightBooking.repo.FlightRepository;
@@ -51,17 +52,20 @@ class FlightServiceImplTest {
 
     @BeforeEach
     void setUp() {
+        // Flight
         testFlight = new Flight();
         testFlight.setId(1L);
         testFlight.setFlightDateTime(LocalDateTime.now().plusDays(10));
         testFlight.setAvailableSeats(10);
         testFlight.setTotalSeats(100);
 
+        // User
         testUser = new User();
         testUser.setId(1L);
         testUser.setEmailId("test@example.com");
         testUser.setName("Test User");
 
+        // Booking
         testBooking = new Booking();
         testBooking.setPnrNumber("PNR123");
         testBooking.setFlight(testFlight);
@@ -70,9 +74,14 @@ class FlightServiceImplTest {
         testBooking.setNumberOfSeats(1);
         testBooking.setJourneyDateTime(testFlight.getFlightDateTime());
 
+        // FULL Passenger DTO (Validation-Safe)
         PassengerDTO passengerDTO = new PassengerDTO();
         passengerDTO.setName("Test Passenger");
-        
+        passengerDTO.setGender(Gender.MALE);
+        passengerDTO.setAge(25);
+        passengerDTO.setSeatNumber("12A");
+
+        // Booking Request
         bookingRequest = new BookingRequest();
         bookingRequest.setEmailId("test@example.com");
         bookingRequest.setName("Test User");
@@ -82,24 +91,24 @@ class FlightServiceImplTest {
 
     @Test
     void testBookTicket_Success() {
-        // Given: Mock repositories
+        // Given
         given(flightRepository.findById(1L)).willReturn(Optional.of(testFlight));
         given(userRepository.findByEmailId("test@example.com")).willReturn(Optional.of(testUser));
         given(bookingRepository.save(any(Booking.class))).willAnswer(invocation -> invocation.getArgument(0));
 
-        // When: Book a ticket
+        // When
         String pnr = flightService.bookTicket(1L, bookingRequest);
 
-        // Then: Assertions
+        // Then
         assertThat(pnr).isNotNull();
-        assertThat(testFlight.getAvailableSeats()).isEqualTo(9); // Verify seat was decremented
-        verify(flightRepository).save(testFlight); // Verify flight was updated
-        verify(bookingRepository).save(any(Booking.class)); // Verify booking was saved
+        assertThat(testFlight.getAvailableSeats()).isEqualTo(9); // seats decremented
+        verify(flightRepository).save(testFlight);
+        verify(bookingRepository).save(any(Booking.class));
     }
 
     @Test
     void testBookTicket_Fail_NotEnoughSeats() {
-        // Given: Only 1 seat requested, but 0 available
+        // Given
         testFlight.setAvailableSeats(0);
         given(flightRepository.findById(1L)).willReturn(Optional.of(testFlight));
 
@@ -111,7 +120,7 @@ class FlightServiceImplTest {
 
     @Test
     void testCancelBooking_Success() {
-        // Given: A booking that is more than 24h away
+        // Given
         given(bookingRepository.findByPnrNumber("PNR123")).willReturn(Optional.of(testBooking));
         given(flightRepository.save(any(Flight.class))).willReturn(testFlight);
         given(bookingRepository.save(any(Booking.class))).willReturn(testBooking);
@@ -121,14 +130,14 @@ class FlightServiceImplTest {
 
         // Then
         assertThat(testBooking.getStatus()).isEqualTo(BookingStatus.CANCELLED);
-        assertThat(testFlight.getAvailableSeats()).isEqualTo(11); // Seat was returned
+        assertThat(testFlight.getAvailableSeats()).isEqualTo(11); // seats returned
         verify(bookingRepository).save(testBooking);
         verify(flightRepository).save(testFlight);
     }
 
     @Test
     void testCancelBooking_Fail_Within24Hours() {
-        // Given: A booking that is less than 24h away
+        // Given
         testBooking.setJourneyDateTime(LocalDateTime.now().plusHours(10));
         given(bookingRepository.findByPnrNumber("PNR123")).willReturn(Optional.of(testBooking));
 
@@ -140,7 +149,7 @@ class FlightServiceImplTest {
 
     @Test
     void testCancelBooking_Fail_AlreadyCancelled() {
-        // Given: An already-cancelled booking
+        // Given
         testBooking.setStatus(BookingStatus.CANCELLED);
         given(bookingRepository.findByPnrNumber("PNR123")).willReturn(Optional.of(testBooking));
 
@@ -153,7 +162,8 @@ class FlightServiceImplTest {
     @Test
     void testGetBookingHistory_Success() {
         // Given
-        given(bookingRepository.findByUser_EmailId("test@example.com")).willReturn(List.of(testBooking));
+        given(bookingRepository.findByUser_EmailId("test@example.com"))
+                .willReturn(List.of(testBooking));
 
         // When
         List<BookingHistoryResponse> history = flightService.getBookingHistory("test@example.com");

@@ -15,6 +15,8 @@ import com.flightBooking.dto.FlightSearchRequest;
 import com.flightBooking.dto.FlightSearchResult;
 import com.flightBooking.dto.PassengerDTO;
 import com.flightBooking.dto.TicketDetailsResponse;
+import com.flightBooking.model.Gender;
+import com.flightBooking.model.TripType;
 import com.flightBooking.service.FlightService;
 
 import java.time.LocalDate;
@@ -47,22 +49,29 @@ class FlightControllerTest {
 
     @BeforeEach
     void setUp() {
-        // Common DTOs for tests
         searchRequest = new FlightSearchRequest();
         searchRequest.setFromPlace("Delhi");
         searchRequest.setToPlace("Mumbai");
         searchRequest.setJourneyDate(LocalDate.now().plusDays(10));
-        
+        searchRequest.setTripType(TripType.ONE_WAY);  // ✔ FIX #1
+
+        PassengerDTO passenger = new PassengerDTO();
+        passenger.setName("John");
+        passenger.setGender(Gender.MALE);
+        passenger.setAge(25);
+        passenger.setSeatNumber("A1");
+
         bookingRequest = new BookingRequest();
         bookingRequest.setName("Test User");
         bookingRequest.setEmailId("test@example.com");
         bookingRequest.setNumberOfSeats(1);
-        bookingRequest.setPassengers(List.of(new PassengerDTO()));
-        
+        bookingRequest.setPassengers(List.of(passenger)); // ✔ FIX #2
+
         ticketDetails = new TicketDetailsResponse();
         ticketDetails.setPnrNumber("PNR123");
         ticketDetails.setJourneyDateTime(LocalDateTime.now().plusDays(10));
     }
+
 
     @Test
     void testSearchFlights_Success() throws Exception {
@@ -74,7 +83,7 @@ class FlightControllerTest {
                 .willReturn(List.of(result));
 
         // When & Then
-        mockMvc.perform(post("/api/v1.0/flight/search")
+        mockMvc.perform(post("/api/flight/search")
                 .contentType(MediaType.APPLICATION_JSON)
                 .content(objectMapper.writeValueAsString(searchRequest)))
                 .andExpect(status().isOk())
@@ -89,7 +98,7 @@ class FlightControllerTest {
                 .willReturn(Collections.emptyList());
 
         // When & Then
-        mockMvc.perform(post("/api/v1.0/flight/search")
+        mockMvc.perform(post("/api/flight/search")
                 .contentType(MediaType.APPLICATION_JSON)
                 .content(objectMapper.writeValueAsString(searchRequest)))
                 .andExpect(status().isNotFound());
@@ -102,7 +111,7 @@ class FlightControllerTest {
                 .willReturn("PNR123");
 
         // When & Then
-        mockMvc.perform(post("/api/v1.0/flight/booking/1")
+        mockMvc.perform(post("/api/flight/booking/1")
                 .contentType(MediaType.APPLICATION_JSON)
                 .content(objectMapper.writeValueAsString(bookingRequest)))
                 .andExpect(status().isCreated())
@@ -116,7 +125,7 @@ class FlightControllerTest {
         given(flightService.getTicketDetails("PNR123")).willReturn(ticketDetails);
 
         // When & Then
-        mockMvc.perform(get("/api/v1.0/flight/ticket/PNR123"))
+        mockMvc.perform(get("/api/flight/ticket/PNR123"))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.pnrNumber").value("PNR123"));
     }
@@ -127,7 +136,7 @@ class FlightControllerTest {
         doNothing().when(flightService).cancelBooking("PNR123");
 
         // When & Then
-        mockMvc.perform(delete("/api/v1.0/flight/booking/cancel/PNR123"))
+        mockMvc.perform(delete("/api/flight/booking/cancel/PNR123"))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.message").value("Ticket PNR123 cancelled successfully"));
     }
